@@ -175,14 +175,19 @@ openclaw config get bindings --json
 
 - 如果当前端存在 `.windclaw-aigw-session`，则创建或更新同名定时任务
 - 如果当前端不存在 `.windclaw-aigw-session`，则不创建定时任务
-- 定时任务名固定为 `windclaw-session-sync`
+- 定时任务名固定为 `WindClaw Session Sync`
 - 默认周期为 1 小时，用户指定则覆盖默认值
 
-定时任务执行内容：
+使用openclaw cron add 创建定时任：
+cron 表达式根据定时周期设置
 
-1. 获取 `.windclaw-aigw-session` 文件内容
-2. 比较是否与上次发送值相同
-3. 如果不同，则以人类身份发送消息并 `@` 接收端 agent
+``` bash
+openclaw cron add \
+  --name "WindClaw Session Sync" \
+  --cron "0 * * * *" \ 
+  --agent windclaw-session-sync \
+  --message "使用 windclaw-session-sync 技能同步 session"
+```
 
 ## 即时同步
 
