@@ -1,6 +1,6 @@
 ---
 name: windclaw-session-sync
-description: 在 WindClaw 环境中初始化 `windclaw-session-sync` agent，读取与 `openclaw.json` 同级目录中的 `.windclaw-aigw-session`，通过飞书群以人类身份 @ 目标 OpenClaw 并发送 sessionId。仅当与 `openclaw.json` 同级目录存在 `.windclaw-aigw-session` 时使用；用于初始化、修复路由、缓存目标 openid、即时同步和定时同步。
+description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session` 同步给另一个 OpenClaw。用于在群聊中初始化、确认当前环境是 WindClaw、记录目标 openid、即时同步和定时同步。仅当与 `openclaw.json` 同级目录存在 `.windclaw-aigw-session` 时使用。
 ---
 
 # WindClaw Session Sync
@@ -8,19 +8,15 @@ description: 在 WindClaw 环境中初始化 `windclaw-session-sync` agent，读
 ## Hard Rules
 
 - 这是共享技能，不要作为插件安装
-- 这个技能只能在 WindClaw 环境初始化
+- 只在飞书群聊中初始化
+- 只在 WindClaw 环境使用这个技能
 - 初始化前必须确认与 `openclaw.json` 同级目录存在 `.windclaw-aigw-session`
 - 如果不存在 `.windclaw-aigw-session`，则停止，并提示当前环境不是 WindClaw
-- 只创建一个 agent：`windclaw-session-sync`
-- 只在飞书群聊中初始化
-- 只在当前 WindClaw 端创建或修复 agent、route、cron 和 `MEMORY.md`
 - 接收端不安装、不初始化这个技能
 
-## Initialization
+## Initialize In Group Chat
 
-### Verify Group Context
-
-只在飞书群聊中执行初始化。根据消息元数据判断：
+初始化必须在飞书群聊中执行。根据消息元数据判断：
 
 ```json
 {
@@ -37,92 +33,20 @@ description: 在 WindClaw 环境中初始化 `windclaw-session-sync` agent，读
 - 如果 `is_group_chat` 不是 `true`，则提示用户必须在飞书群聊中初始化并停止
 - 使用 `conversation_label` 作为当前群 id
 
-### Resolve OpenClaw Root
-
-通过主 agent 的 workspace 推导 OpenClaw 根目录：
-
-```bash
-main_workspace=$(openclaw agents list | grep -A 6 "^- main" | grep "Workspace:" | awk '{print $2}')
-openclaw_root="${main_workspace%/workspace}"
-```
-
-当前 skill workspace 使用：
-
-```text
-${openclaw_root}/workspace-windclaw-session-sync/
-```
-
-### Verify WindClaw Environment
+## Verify WindClaw Environment
 
 按下面流程确认当前环境就是 WindClaw：
 
 1. 执行 `openclaw config file`
-2. 获取返回的 `openclaw.json` 路径
+2. 获取返回的 `openclaw.json` 绝对路径
 3. 检查其同级目录中是否存在 `.windclaw-aigw-session`
 
 规则：
 
-- 文件存在：允许继续初始化
-- 文件不存在：停止，并提示当前环境不是 WindClaw，不能初始化此技能
+- 文件存在：允许继续
+- 文件不存在：停止，并提示当前环境不是 WindClaw
 
-### Ensure Agent Exists
-
-先检查 agent 是否已经存在：
-
-```bash
-openclaw agents list | grep "windclaw-session-sync"
-```
-
-规则：
-
-- 如果 agent 已存在，则跳过创建，但继续执行后续校验和补齐
-- 如果 agent 不存在，则创建
-
-创建命令：
-
-```bash
-openclaw agents add windclaw-session-sync \
-  --workspace "${openclaw_root}/workspace-windclaw-session-sync" \
-  --description "Read the WindClaw session file and sync sessionId to another OpenClaw through a Feishu group." \
-  --bind "feishu"
-```
-
-如果环境要求指定模型，则补充 `--model` 参数，并沿用当前默认模型。
-
-### Ensure Group Route Exists
-
-先读取现有 bindings：
-
-```bash
-existing_bindings=$(openclaw config get bindings --json)
-```
-
-确保存在下面的 route：
-
-```json
-[
-  {
-    "type": "route",
-    "agentId": "windclaw-session-sync",
-    "match": {
-      "channel": "feishu",
-      "peer": {
-        "kind": "group",
-        "id": "<group_id>"
-      }
-    }
-  }
-]
-```
-
-把 route 和已有 bindings 合并后写回：
-
-```bash
-openclaw config set bindings "<merged_bindings_json>"
-openclaw config get bindings --json
-```
-
-## Peer OpenId
+## Remember Peer OpenId
 
 发送消息前需要知道目标 OpenClaw 在当前群里的 openid。
 
@@ -147,7 +71,7 @@ openclaw config get bindings --json
 2. 从该消息的 `mentions` 数组中提取目标 agent 的 `id`
 3. 将结果写入 `MEMORY.md`
 
-如果历史消息中没有出现过对端 agent 的 mention，则提示用户先在群里手工 `@` 一次目标 OpenClaw，再重新初始化。
+如果历史消息中没有出现过对端 agent 的 mention，则提示用户先在群里手工 `@` 一次目标 OpenClaw，再重新执行初始化。
 
 ## Read SessionId
 
@@ -164,7 +88,7 @@ openclaw config get bindings --json
 - 不要依赖 `~/` 或 `~\` 这种 home 简写路径
 - 不要把 `~` 作为字面量路径交给文件工具
 - 在 Windows 定时任务上下文中，始终重新计算绝对路径，不要复用带 `~` 的字符串
-- 如果该文件在后续运行中丢失，则停止发送，并提示用户当前环境不再满足 WindClaw 前提
+- 如果该文件在后续运行中丢失，则停止发送，并提示当前环境不再满足 WindClaw 前提
 
 ## Send Message
 
@@ -207,7 +131,6 @@ feishu_im_user_message({
 - `receive_id_type` 必须为 `chat_id`
 - 发送身份必须是人类
 - `@` 的对象必须是目标 OpenClaw 在该群中的 openid
-- 不要让接收端把 `~` 作为字面量路径传给文件工具
 - 在 Windows 上先展开 home 目录为绝对路径，再用 `path` 参数读写目标文件
 
 ## Immediate Sync
@@ -221,7 +144,7 @@ feishu_im_user_message({
 
 ## Scheduled Sync
 
-只有 WindClaw 端创建或更新定时任务。
+如果用户要求定时同步，则创建或更新一个定时任务。
 
 规则：
 
@@ -240,16 +163,3 @@ openclaw cron add \
   --agent windclaw-session-sync \
   --message "使用 windclaw-session-sync 技能同步 session"
 ```
-
-## Repair Behavior
-
-当用户再次使用技能时，不要默认停止。执行修复式检查：
-
-1. 检查是否在群聊中
-2. 检查当前环境是否仍然是 WindClaw
-3. 检查 agent 是否存在
-4. 检查 route 是否存在
-5. 检查 `MEMORY.md` 是否有效
-6. 检查定时任务是否存在并与当前周期一致
-
-缺什么就补什么。
