@@ -46,7 +46,7 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
   "conversation_label": "oc_xxxxxxxxx",
   "group_subject": "oc_yyyyyyyyy",
   "was_mentioned": true,
-  "sender_id": "ou_097d373f70d1d2a05ee2ba0e52cccc48"
+  "sender_id": "ou_zzzzzzzzz"
 }
 ```
 
@@ -151,7 +151,7 @@ openclaw config set hooks.internal.enabled true
 3. 从 `MEMORY.md` 中取出 `session_file_path`
 4. 必要时重新发现目标 openid
 5. 必要时重新解析 `session_file_path`
-6. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数，强制从磁盘读取，不要使用缓存。
+6. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数，强制从磁盘读取文件内容，不要使用内存中的缓存。
 7. 发送固定格式消息
 
 ## OpenClaw Tools
@@ -175,7 +175,7 @@ openclaw config set hooks.internal.enabled true
 直接读取 `session_file_path` 文件的内容即为sessionid，记录成 `session_id` 。
 
 注意：
- - 强制从磁盘读取，不要使用缓存
+ - 强制从磁盘读取文件内容，不要使用内存中的缓存
 
 ## Feishu Tools
 
