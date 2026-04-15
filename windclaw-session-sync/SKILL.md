@@ -1,6 +1,6 @@
----
+﻿---
 name: windclaw-session-sync
-description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session` 同步给另一个 OpenClaw。用于在群聊中初始化、确认当前环境是 WindClaw、记录目标 openid 和 session 文件绝对路径，并在初始化时自动创建或更新定时同步任务。收到触发词“同步 windclaw session”时执行一次同步。初始化时还会开启 internal hooks，并在 default agent 的 `workspace` 和 `agentDir` 下创建或更新 `BOOT.md`，用于 OpenClaw 启动后自动触发一次同步。仅当与 `openclaw.json` 同级目录存在 `.windclaw-aigw-session` 时使用。
+description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session` 同步给另一个 OpenClaw。收到类似触发词“同步 windclaw session”、“同步windclaw”、“windclaw”、“windclaw session” 时执行一次同步。
 ---
 
 # WindClaw Session Sync
@@ -20,6 +20,17 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
 - 手动触发词使用：`同步 windclaw session`
 - 定时任务发送的消息固定为：`请使用 windclaw-session-sync技能 同步 windclaw session`
 - 即时触发和定时触发都优先使用 `MEMORY.md` 中记录的绝对路径
+
+## 术语变量
+以下是一些本技能要使用的术语变量
+ - `peer_bot_names` : 用户提供需要接收sessionid的bot的名字，如果多个用逗号分隔
+ - `peer_bot_openids` : 接收sessionid的bot的openid，如果多个用逗号分隔
+ - `openclaw_root` : openclaw根目录, [获取方法](#获取openclaw根目录)
+ - `agent_agentDir` : 默认agent的agentDir目录, [获取方法](#获取默认agent目录)
+ - `agent_workspace` : 默认agent的workspace目录, [获取方法](#获取默认agent目录)
+ - `session_file_path` : `.windclaw-aigw-session` 文件的绝对路径，[获取方法](#获取session文件路径)
+ - `group_id` : 当前群 id
+ - `session_id` : 需要同步的sessionid，[获取方法](#获取sessionid)
 
 ## Initialization
 
@@ -42,35 +53,17 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
 规则：
 
 - 如果 `is_group_chat` 不是 `true`，则提示用户必须在飞书群聊中初始化并停止
-- 使用 `conversation_label` 作为当前群 id
+- 使用 `conversation_label` 作为当前群 id， 记录为 `group_id`
 
 ### 2. Verify WindClaw Environment
 
-按下面流程确认当前环境就是 WindClaw，并同时得到 session 文件绝对路径：
-
-1. 执行 `openclaw config file`
-2. 获取返回的 `openclaw.json` 绝对路径
-3. 用该绝对路径推导同级 `.windclaw-aigw-session` 的绝对路径
-4. 检查该绝对路径对应的文件是否存在
-
-规则：
-
-- 文件存在：允许继续，并记录该绝对路径
-- 文件不存在：停止，并提示当前环境不是 WindClaw
+1. 获取openclaw根目录
+2. 获取session文件目录，如果不存在则停止，提示当前环境不是WindClaw
+3. 获取默认agent目录
 
 ### 3. Discover Peer OpenId
 
-发送消息前需要知道目标 OpenClaw 在当前群里的 openid。
-
-使用 `feishu_im_user_get_messages` 获取当前群历史消息。
-
-步骤：
-
-1. 找到 `@` 了目标 OpenClaw 的消息
-2. 从该消息的 `mentions` 数组中提取目标 agent 的 `id`
-3. 将结果记录下来
-
-如果历史消息中没有出现过对端 agent 的 mention，则提示用户先在群里手工 `@` 一次目标 OpenClaw，再重新执行初始化。
+获取接收sessionid的成员openid
 
 ### 4. Write MEMORY.md
 
@@ -81,15 +74,15 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
 ```md
 ## WindClaw Session Sync
 - group_id: <group_id>
-- peer_bot_openid: <bot_openid>
-- session_file_path: <absolute_path>
+- peer_bot_openids: <peer_bot_openids>
+- session_file_path: <session_file_path>
 - updated_at: <iso_datetime>
 ```
 
 规则：
 
 - 如果 `group_id` 与当前群不匹配，则重写
-- 如果 `peer_bot_openid` 缺失，则重新发现并重写
+- 如果 `peer_bot_openids` 缺失，则重新发现并重写
 - 如果 `session_file_path` 缺失，则重新解析并重写
 - 如果 `session_file_path` 指向的文件已不存在，则重新解析；仍不存在则停止
 
@@ -105,8 +98,8 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
 - 若已存在同名任务，则更新，不重复创建
 - 定时任务触发消息固定为：`请使用 windclaw-session-sync技能 同步 windclaw session`
 - 定时任务执行时，先读取 `MEMORY.md` 中的 `session_file_path`
-- 如果 `session_file_path` 无效，再重新通过 `openclaw config file` 解析绝对路径并回写 `MEMORY.md`
-- 不要在定时任务中直接读取相对路径 `.windclaw-aigw-session`
+- 如果 `session_file_path` 无效，再重新[获取session文件路径](#获取session文件路径)
+
 
 示例：
 
@@ -126,69 +119,75 @@ openclaw cron add \
 openclaw config set hooks.internal.enabled true
 ```
 
-然后执行 `openclaw agents list`，找到 `default` agent 的记录，并从中提取两个绝对路径：
+在这 `agent_agentDir` 和  `agent_workspace` 两个目录下分别查找或创建：
 
-- `workspace`
-- `agentDir`
-
-在这两个目录下分别查找或创建：
-
-- `<workspace>/BOOT.md`
-- `<agentDir>/BOOT.md`
+- `<agent_agentDir>/BOOT.md`
+- `<agent_workspace>/BOOT.md`
 
 写入或保持如下内容：
 
 ```md
 # 启动时自动同步 WindClaw Session
 
-## 使用 message 工具发送
+## 使用 sessions_send 工具发送
+- sessionkey: agent:main:main
+- message: "请使用 `windclaw-session-sync` 技能 同步 windclaw session"
 
-```javascript
-message({
-  message: "请使用 `windclaw-session-sync` 技能 同步 windclaw session"
-})
-```
 ```
 
 规则：
 
-- 只处理 `default` agent，不处理其他 agent
 - 如果 `BOOT.md` 不存在，则创建
 - 如果 `BOOT.md` 已存在但没有上述段落，则追加
 - 如果已经存在相同段落，则不要重复写入
 
-## Read SessionId
 
-读取 WindClaw session 文件时，唯一合法顺序如下：
+## Sync Execution
 
-1. 先读取 `MEMORY.md`
-2. 从 `MEMORY.md` 中取出 `session_file_path`
-3. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数
-4. 如果 `session_file_path` 无效或读取失败，则重新执行 `openclaw config file`，重新解析绝对路径
-5. 将新解析出的绝对路径回写到 `MEMORY.md`
-6. 再次使用 `path` 参数读取该绝对路径
-7. 文件内容即为 `sessionId`
+触发同步时，唯一合法顺序如下：
 
-规则：
+1. 读取 `MEMORY.md`
+2. 从 `MEMORY.md` 中取出 `peer_bot_openid`
+3. 从 `MEMORY.md` 中取出 `session_file_path`
+4. 必要时重新发现目标 openid
+5. 必要时重新解析 `session_file_path`
+6. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数
+7. 发送固定格式消息
 
-- 不要直接读取相对路径 `.windclaw-aigw-session`
-- 不要依赖 `~/` 或 `~\` 这种 home 简写路径
-- 不要把 `~` 作为字面量路径交给文件工具
-- 不要使用 `file_path` 参数
-- 在 Windows 定时任务上下文中，始终使用绝对路径
-- 文件工具必须优先使用 `path` 参数
-- 如果重新解析后仍然找不到文件，则停止发送，并提示当前环境不再满足 WindClaw 前提
+## OpenClaw Tools
 
-## Send Message
+### 获取openclaw根目录
 
-必须以人类身份发送飞书 `post` 消息，并 `@` 目标 OpenClaw。
+通过 `openclaw config file` 的输出解析出openclaw.json文件的目录，即为openclaw根目录，记录成 `openclaw_root` 。
 
-消息格式固定为：
+### 获取默认agent目录
 
-```text
-@ windclaw-session-sync，sessionId：<plain-text-session-id>，请覆盖写入用户 home 目录下的 '.openclaw-windclaw/.windclaw-aigw-session' 文件中。
-```
+通过 `openclaw agents list` 的输出找到 `default` agent 的记录，并从中提取 `agentDir` 和 `workspace` 路径，其中:
+- `agentDir` 转换成绝对路径，记录为 `agent_agentDir` 
+- `workspace` 转换成绝对路径，记录为 `agent_workspace` 
 
+### 获取session文件路径
+
+同 `openclaw_root` 同级目录的 `.windclaw-aigw-session` 文件的路径，转换成绝对路径，记录成 `session_file_path` 。
+
+### 获取sessionId
+
+直接读取 `session_file_path` 文件的内容即为sessionid，记录成 `session_id` 。
+
+## Feishu Tools
+
+### 获取接收sessionid的成员openid
+
+使用 `feishu_im_user_get_messages` 获取当前群历史消息，用用户提供的 `peer_bot_names` 找到对应的id。
+
+步骤：
+
+1. 找到 `@` 了目标的消息
+2. 从该消息的 `mentions` 数组中提取目标 agent 的 `id`，记录为 `peer_bot_openids` ，多个用逗号分隔
+
+### 发送sessionid同步消息
+
+如果有多个接收sessionid的openid，先将 `peer_bot_openids` 以逗号解析出 `peer_bot_openid1` 、`peer_bot_openid2` ...
 发送调用：
 
 ```javascript
@@ -202,34 +201,18 @@ feishu_im_user_message({
       content: [[
         {
           tag: "at",
-          user_id: "<bot_openid>"
+          user_id: "<peer_bot_openid1>"
+        },
+        {
+          tag: "at",
+          user_id: "<peer_bot_openid2>"
         },
         {
           tag: "text",
-          text: "，sessionId：<plain-text-session-id>，请覆盖写入用户 home 目录下的 '.openclaw-windclaw/.windclaw-aigw-session' 文件中。"
+          text: "，请将sessionId：<session_id>，覆盖写入 '~/.openclaw-windclaw/.windclaw-aigw-session' 文件中, 只写入sessionid本身。"
         }
       ]]
     }
   })
 })
 ```
-
-要求：
-
-- `msg_type` 必须为 `post`
-- `receive_id_type` 必须为 `chat_id`
-- 发送身份必须是人类
-- `@` 的对象必须是目标 OpenClaw 在该群中的 openid
-- 在 Windows 上先展开 home 目录为绝对路径，再用 `path` 参数读写目标文件
-
-## Sync Execution
-
-触发同步时，唯一合法顺序如下：
-
-1. 读取 `MEMORY.md`
-2. 从 `MEMORY.md` 中取出 `peer_bot_openid`
-3. 从 `MEMORY.md` 中取出 `session_file_path`
-4. 必要时重新发现目标 openid
-5. 必要时重新解析 `session_file_path`
-6. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数
-7. 发送固定格式消息
