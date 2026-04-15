@@ -1,6 +1,6 @@
 ---
 name: windclaw-session-sync
-description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session` 同步给另一个 OpenClaw。用于在群聊中初始化、确认当前环境是 WindClaw、记录目标 openid 和 session 文件绝对路径，并在初始化时自动创建或更新定时同步任务。收到触发词“同步 windclaw session”时执行一次同步。仅当与 `openclaw.json` 同级目录存在 `.windclaw-aigw-session` 时使用。
+description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session` 同步给另一个 OpenClaw。用于在群聊中初始化、确认当前环境是 WindClaw、记录目标 openid 和 session 文件绝对路径，并在初始化时自动创建或更新定时同步任务。收到触发词“同步 windclaw session”时执行一次同步。初始化时还会开启 internal hooks，并在 default agent 的 `workspace` 和 `agentDir` 下创建或更新 `BOOT.md`，用于 OpenClaw 启动后自动触发一次同步。仅当与 `openclaw.json` 同级目录存在 `.windclaw-aigw-session` 时使用。
 ---
 
 # WindClaw Session Sync
@@ -15,6 +15,8 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
 - 接收端不安装、不初始化这个技能
 - 初始化时就解析 `.windclaw-aigw-session` 的绝对路径，并写入 `MEMORY.md`
 - 初始化时自动创建或更新定时任务，不需要用户额外要求
+- 初始化时自动开启 `hooks.internal.enabled`
+- 初始化时自动在 default agent 的 `workspace` 和 `agentDir` 下创建或更新 `BOOT.md`
 - 手动触发词使用：`同步 windclaw session`
 - 定时任务发送的消息固定为：`请使用 windclaw-session-sync技能 同步 windclaw session`
 - 即时触发和定时触发都优先使用 `MEMORY.md` 中记录的绝对路径
@@ -116,6 +118,45 @@ openclaw cron add \
   --message "请使用 windclaw-session-sync技能 同步 windclaw session"
 ```
 
+### 6. Enable Startup Sync Hook
+
+初始化时自动开启 internal hooks：
+
+```bash
+openclaw config set hooks.internal.enabled true
+```
+
+然后执行 `openclaw agents list`，找到 `default` agent 的记录，并从中提取两个绝对路径：
+
+- `workspace`
+- `agentDir`
+
+在这两个目录下分别查找或创建：
+
+- `<workspace>/BOOT.md`
+- `<agentDir>/BOOT.md`
+
+写入或保持如下内容：
+
+```md
+# 启动时自动同步 WindClaw Session
+
+## 使用 message 工具发送
+
+```javascript
+message({
+  message: "请使用 `windclaw-session-sync` 技能 同步 windclaw session"
+})
+```
+```
+
+规则：
+
+- 只处理 `default` agent，不处理其他 agent
+- 如果 `BOOT.md` 不存在，则创建
+- 如果 `BOOT.md` 已存在但没有上述段落，则追加
+- 如果已经存在相同段落，则不要重复写入
+
 ## Read SessionId
 
 读取 WindClaw session 文件时，唯一合法顺序如下：
@@ -192,4 +233,3 @@ feishu_im_user_message({
 5. 必要时重新解析 `session_file_path`
 6. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数
 7. 发送固定格式消息
-
