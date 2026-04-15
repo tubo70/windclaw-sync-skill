@@ -192,10 +192,6 @@ openclaw cron add \
   --message "使用 windclaw-session-sync 技能同步 session"
 ```
 
-请用如下命令创建定时任务：
-```bash
-openclaw cron add --name windclaw-session-sync --every 1h --agent windclaw-session-sync --message "请使用 `windclaw-session-sync` 执行 windclaw session 同步"
-```
 
 ## 即时同步
 
