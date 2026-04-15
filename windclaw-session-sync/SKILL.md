@@ -1,24 +1,20 @@
 ---
 name: windclaw-session-sync
-description: 在飞书群中同步 WindClaw 的 `.windclaw-aigw-session` 到另一个 OpenClaw。用于初始化或修复 `windclaw-session-sync` agent、将 agent 路由到指定飞书群、根据本机是否存在与 `openclaw.json` 同级目录的 `.windclaw-aigw-session` 自动判定发送端或接收端，并通过人类身份 @ 对端 agent 传递 sessionId。
+description: 在 WindClaw 环境中初始化 `windclaw-session-sync` agent，读取与 `openclaw.json` 同级目录中的 `.windclaw-aigw-session`，通过飞书群以人类身份 @ 目标 OpenClaw 并发送 sessionId。仅当与 `openclaw.json` 同级目录存在 `.windclaw-aigw-session` 时使用；用于初始化、修复路由、缓存目标 openid、即时同步和定时同步。
 ---
 
 # WindClaw Session Sync
 
 ## Hard Rules
 
+- 这是共享技能，不要作为插件安装
+- 这个技能只能在 WindClaw 环境初始化
+- 初始化前必须确认与 `openclaw.json` 同级目录存在 `.windclaw-aigw-session`
+- 如果不存在 `.windclaw-aigw-session`，则停止，并提示当前环境不是 WindClaw
 - 只创建一个 agent：`windclaw-session-sync`
 - 只在飞书群聊中初始化
-- 不要作为插件安装；这是共享技能
-- 不要在同一端创建两个 agent
-- 角色只由本机是否存在与 `openclaw.json` 同级目录的 `.windclaw-aigw-session` 决定
-- 发送端才创建或更新定时任务
-- 接收端只在被 `@` 且消息格式匹配时写文件
-
-角色判定：
-
-- 文件存在：当前端是发送端
-- 文件不存在：当前端是接收端
+- 只在当前 WindClaw 端创建或修复 agent、route、cron 和 `MEMORY.md`
+- 接收端不安装、不初始化这个技能
 
 ## Initialization
 
@@ -56,6 +52,19 @@ openclaw_root="${main_workspace%/workspace}"
 ${openclaw_root}/workspace-windclaw-session-sync/
 ```
 
+### Verify WindClaw Environment
+
+按下面流程确认当前环境就是 WindClaw：
+
+1. 执行 `openclaw config file`
+2. 获取返回的 `openclaw.json` 路径
+3. 检查其同级目录中是否存在 `.windclaw-aigw-session`
+
+规则：
+
+- 文件存在：允许继续初始化
+- 文件不存在：停止，并提示当前环境不是 WindClaw，不能初始化此技能
+
 ### Ensure Agent Exists
 
 先检查 agent 是否已经存在：
@@ -74,7 +83,7 @@ openclaw agents list | grep "windclaw-session-sync"
 ```bash
 openclaw agents add windclaw-session-sync \
   --workspace "${openclaw_root}/workspace-windclaw-session-sync" \
-  --description "Sync WindClaw sessionId through a Feishu group according to the local role." \
+  --description "Read the WindClaw session file and sync sessionId to another OpenClaw through a Feishu group." \
   --bind "feishu"
 ```
 
@@ -113,24 +122,9 @@ openclaw config set bindings "<merged_bindings_json>"
 openclaw config get bindings --json
 ```
 
-### Detect Role
+## Peer OpenId
 
-按下面流程获取 session 文件并判定角色：
-
-1. 执行 `openclaw config file`
-2. 获取返回的 `openclaw.json` 路径
-3. 检查其同级目录中是否存在 `.windclaw-aigw-session`
-
-规则：
-
-- 文件存在：发送端
-- 文件不存在：接收端
-
-## Sender Side
-
-### Maintain Peer OpenId
-
-发送端需要知道接收端 agent 在当前群里的 openid。
+发送消息前需要知道目标 OpenClaw 在当前群里的 openid。
 
 优先从当前 workspace 的 `MEMORY.md` 读取；如果缺失、群 id 不匹配或 openid 为空，则重新发现并写回。
 
@@ -149,26 +143,26 @@ openclaw config get bindings --json
 
 步骤：
 
-1. 找到 `@` 了目标 agent 的消息
+1. 找到 `@` 了目标 OpenClaw 的消息
 2. 从该消息的 `mentions` 数组中提取目标 agent 的 `id`
 3. 将结果写入 `MEMORY.md`
 
-如果历史消息中没有出现过对端 agent 的 mention，则提示用户先在群里手工 `@` 一次对端 agent，再重新初始化。
+如果历史消息中没有出现过对端 agent 的 mention，则提示用户先在群里手工 `@` 一次目标 OpenClaw，再重新初始化。
 
-### Read SessionId
+## Read SessionId
 
-读取发送端 session 文件：
+读取 WindClaw session 文件：
 
 1. 执行 `openclaw config file`
 2. 获取 `openclaw.json` 路径
 3. 读取同级目录中的 `.windclaw-aigw-session`
 4. 文件内容即为 `sessionId`
 
-如果文件丢失，则当前端不再视为发送端，应按接收端处理。
+如果该文件在后续运行中丢失，则停止发送，并提示用户当前环境不再满足 WindClaw 前提。
 
-### Send Message
+## Send Message
 
-必须以人类身份发送飞书 `post` 消息，并 `@` 接收端 agent。
+必须以人类身份发送飞书 `post` 消息，并 `@` 目标 OpenClaw。
 
 消息格式固定为：
 
@@ -206,20 +200,20 @@ feishu_im_user_message({
 - `msg_type` 必须为 `post`
 - `receive_id_type` 必须为 `chat_id`
 - 发送身份必须是人类
-- `@` 的对象必须是接收端 agent 在该群中的 openid
+- `@` 的对象必须是目标 OpenClaw 在该群中的 openid
 
-### Immediate Sync
+## Immediate Sync
 
 如果用户要求即时同步，则立即执行一次发送流程：
 
 1. 读取 `MEMORY.md`
-2. 必要时重新发现对端 openid
+2. 必要时重新发现目标 openid
 3. 读取 `.windclaw-aigw-session`
 4. 发送固定格式消息
 
-### Scheduled Sync
+## Scheduled Sync
 
-只有发送端创建或更新定时任务。
+只有 WindClaw 端创建或更新定时任务。
 
 规则：
 
@@ -238,39 +232,15 @@ openclaw cron add \
   --message "使用 windclaw-session-sync 技能同步 session"
 ```
 
-## Receiver Side
-
-接收端目标路径固定为：
-
-```text
-~/.openclaw-windclaw/.windclaw-aigw-session
-```
-
-只在下面条件全部满足时处理消息：
-
-1. 消息中 `@` 当前 agent
-2. 消息文本包含 `sessionId：`
-3. 消息文本包含 `，请覆盖写入`
-
-提取规则：
-
-- 取 `sessionId：` 与 `，请覆盖写入` 之间的内容作为 sessionId
-- 如果边界不完整，则忽略，不写文件
-
-写入步骤：
-
-1. 确保目录 `~/.openclaw-windclaw` 存在
-2. 覆盖写入 `~/.openclaw-windclaw/.windclaw-aigw-session`
-
 ## Repair Behavior
 
 当用户再次使用技能时，不要默认停止。执行修复式检查：
 
 1. 检查是否在群聊中
-2. 检查 agent 是否存在
-3. 检查 route 是否存在
-4. 检查角色是否变化
-5. 发送端检查 `MEMORY.md` 是否有效
-6. 发送端检查定时任务是否存在并与当前周期一致
+2. 检查当前环境是否仍然是 WindClaw
+3. 检查 agent 是否存在
+4. 检查 route 是否存在
+5. 检查 `MEMORY.md` 是否有效
+6. 检查定时任务是否存在并与当前周期一致
 
 缺什么就补什么。
