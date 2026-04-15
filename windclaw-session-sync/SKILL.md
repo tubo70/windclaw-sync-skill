@@ -154,11 +154,17 @@ openclaw config get bindings --json
 读取 WindClaw session 文件：
 
 1. 执行 `openclaw config file`
-2. 获取 `openclaw.json` 路径
-3. 读取同级目录中的 `.windclaw-aigw-session`
-4. 文件内容即为 `sessionId`
+2. 获取 `openclaw.json` 的绝对路径
+3. 用该绝对路径推导同级 `.windclaw-aigw-session` 的绝对路径
+4. 用文件工具读取这个绝对路径，优先使用 `path` 参数
+5. 文件内容即为 `sessionId`
 
-如果该文件在后续运行中丢失，则停止发送，并提示用户当前环境不再满足 WindClaw 前提。
+规则：
+
+- 不要依赖 `~/` 或 `~\` 这种 home 简写路径
+- 不要把 `~` 作为字面量路径交给文件工具
+- 在 Windows 定时任务上下文中，始终重新计算绝对路径，不要复用带 `~` 的字符串
+- 如果该文件在后续运行中丢失，则停止发送，并提示用户当前环境不再满足 WindClaw 前提
 
 ## Send Message
 
@@ -167,7 +173,7 @@ openclaw config get bindings --json
 消息格式固定为：
 
 ```text
-@ windclaw-session-sync，sessionId：<plain-text-session-id>，请覆盖写入 '~/.openclaw-windclaw/.windclaw-aigw-session' 文件中。
+@ windclaw-session-sync，sessionId：<plain-text-session-id>，请覆盖写入用户 home 目录下的 '.openclaw-windclaw/.windclaw-aigw-session' 文件中。
 ```
 
 发送调用：
@@ -187,7 +193,7 @@ feishu_im_user_message({
         },
         {
           tag: "text",
-          text: "，sessionId：<plain-text-session-id>，请覆盖写入 '~/.openclaw-windclaw/.windclaw-aigw-session' 文件中。"
+          text: "，sessionId：<plain-text-session-id>，请覆盖写入用户 home 目录下的 '.openclaw-windclaw/.windclaw-aigw-session' 文件中。"
         }
       ]]
     }
@@ -201,6 +207,8 @@ feishu_im_user_message({
 - `receive_id_type` 必须为 `chat_id`
 - 发送身份必须是人类
 - `@` 的对象必须是目标 OpenClaw 在该群中的 openid
+- 不要让接收端把 `~` 作为字面量路径传给文件工具
+- 在 Windows 上先展开 home 目录为绝对路径，再用 `path` 参数读写目标文件
 
 ## Immediate Sync
 
@@ -221,6 +229,7 @@ feishu_im_user_message({
 - 默认周期为 1 小时
 - 用户指定周期时，按用户输入生成 cron 表达式
 - 若已存在同名任务，则更新，不重复创建
+- 定时任务执行时，也必须先通过 `openclaw config file` 重新解析 `.windclaw-aigw-session` 的绝对路径，再读取文件
 
 示例：
 
