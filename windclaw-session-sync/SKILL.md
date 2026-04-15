@@ -15,8 +15,9 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
 - 接收端不安装、不初始化这个技能
 - 初始化时就解析 `.windclaw-aigw-session` 的绝对路径，并写入 `MEMORY.md`
 - 初始化时自动创建或更新定时任务，不需要用户额外要求
-- 即时触发和定时触发都使用同一个触发词：`同步 windclaw session`
-- 即时触发和定时触发优先使用 `MEMORY.md` 中记录的绝对路径
+- 手动触发词使用：`同步 windclaw session`
+- 定时任务发送的消息固定为：`请使用 windclaw-session-sync技能 同步 windclaw session`
+- 即时触发和定时触发都优先使用 `MEMORY.md` 中记录的绝对路径
 
 ## Initialization
 
@@ -100,7 +101,7 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
 - 默认周期为 1 小时
 - 用户指定周期时，按用户输入生成 cron 表达式
 - 若已存在同名任务，则更新，不重复创建
-- 定时任务触发消息固定为：`同步 windclaw session`
+- 定时任务触发消息固定为：`请使用 windclaw-session-sync技能 同步 windclaw session`
 - 定时任务执行时，先读取 `MEMORY.md` 中的 `session_file_path`
 - 如果 `session_file_path` 无效，再重新通过 `openclaw config file` 解析绝对路径并回写 `MEMORY.md`
 - 不要在定时任务中直接读取相对路径 `.windclaw-aigw-session`
@@ -112,26 +113,29 @@ openclaw cron add \
   --name "WindClaw Session Sync" \
   --cron "0 * * * *" \
   --agent main \
-  --message "请使用 `windclaw-session-sync` 同步 windclaw session"
+  --message "请使用 windclaw-session-sync技能 同步 windclaw session"
 ```
 
 ## Read SessionId
 
-读取 WindClaw session 文件时按下面顺序执行：
+读取 WindClaw session 文件时，唯一合法顺序如下：
 
 1. 先读取 `MEMORY.md`
-2. 如果存在 `session_file_path`，则优先使用这个绝对路径读取文件
-3. 如果 `session_file_path` 不存在或读取失败，则重新执行 `openclaw config file`，重新解析绝对路径
-4. 将新解析出的绝对路径回写到 `MEMORY.md`
-5. 文件内容即为 `sessionId`
+2. 从 `MEMORY.md` 中取出 `session_file_path`
+3. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数
+4. 如果 `session_file_path` 无效或读取失败，则重新执行 `openclaw config file`，重新解析绝对路径
+5. 将新解析出的绝对路径回写到 `MEMORY.md`
+6. 再次使用 `path` 参数读取该绝对路径
+7. 文件内容即为 `sessionId`
 
 规则：
 
 - 不要直接读取相对路径 `.windclaw-aigw-session`
 - 不要依赖 `~/` 或 `~\` 这种 home 简写路径
 - 不要把 `~` 作为字面量路径交给文件工具
+- 不要使用 `file_path` 参数
 - 在 Windows 定时任务上下文中，始终使用绝对路径
-- 文件工具优先使用 `path` 参数
+- 文件工具必须优先使用 `path` 参数
 - 如果重新解析后仍然找不到文件，则停止发送，并提示当前环境不再满足 WindClaw 前提
 
 ## Send Message
@@ -179,10 +183,13 @@ feishu_im_user_message({
 
 ## Sync Execution
 
-同步流程如下：
+触发同步时，唯一合法顺序如下：
 
 1. 读取 `MEMORY.md`
-2. 必要时重新发现目标 openid
-3. 必要时重新解析 `session_file_path`
-4. 用绝对路径读取 `.windclaw-aigw-session`
-5. 发送固定格式消息
+2. 从 `MEMORY.md` 中取出 `peer_bot_openid`
+3. 从 `MEMORY.md` 中取出 `session_file_path`
+4. 必要时重新发现目标 openid
+5. 必要时重新解析 `session_file_path`
+6. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数
+7. 发送固定格式消息
+
