@@ -151,7 +151,7 @@ openclaw config set hooks.internal.enabled true
 3. 从 `MEMORY.md` 中取出 `session_file_path`
 4. 必要时重新发现目标 openid
 5. 必要时重新解析 `session_file_path`
-6. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数
+6. 调用文件工具读取 `session_file_path`，必须使用 `path` 参数，强制从磁盘读取，不要使用缓存。
 7. 发送固定格式消息
 
 ## OpenClaw Tools
@@ -173,6 +173,9 @@ openclaw config set hooks.internal.enabled true
 ### 获取sessionId
 
 直接读取 `session_file_path` 文件的内容即为sessionid，记录成 `session_id` 。
+
+注意：
+ - 强制从磁盘读取，不要使用缓存
 
 ## Feishu Tools
 
