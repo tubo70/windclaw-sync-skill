@@ -1,0 +1,4 @@
+interface:
+  display_name: "WindClaw Session Sync"
+  short_description: "Sync WindClaw session IDs between OpenClaw endpoints through a Feishu group."
+  default_prompt: "Use $windclaw-session-sync to initialize or repair session sync for the current OpenClaw endpoint in this Feishu group."

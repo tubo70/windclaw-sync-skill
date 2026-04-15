@@ -1,14 +1,7 @@
-﻿# windclaw-session-sync
+# windclaw-session-sync
 
 这是一个 OpenClaw 共享技能，用于把 WindClaw 端的 `.windclaw-aigw-session` 同步到另一个 OpenClaw。
 
-技能只有一个 agent id：`windclaw-session-sync`，并且只会在当前端创建这一个 agent。
+技能目录是 [windclaw-session-sync](windclaw-session-sync)。安装时只复制这个技能目录到 OpenClaw 的共享技能目录，不要把整个仓库当作技能安装，也不要作为插件安装。
 
-角色不是手工指定，而是自动判断：
-
-- 如果本机存在 `.windclaw-aigw-session`，当前端是发送端
-- 如果本机不存在 `.windclaw-aigw-session`，当前端是接收端
-
-发送端会定时读取 WindClaw 的 session 文件，以人类身份发消息并 `@` 接收端 agent；接收端收到后将 sessionId 覆盖写入 `~/.openclaw-windclaw/.windclaw-aigw-session`。
-
-安装方式：将本仓库中的 [windclaw-session-sync](windclaw-session-sync) 目录安装到 OpenClaw 的共享技能目录中。
+技能只使用一个 agent id：`windclaw-session-sync`。它会根据与 `openclaw.json` 同级目录中是否存在 `.windclaw-aigw-session` 自动判断当前端是发送端还是接收端。发送端负责定时或即时发送 sessionId，接收端负责在收到匹配消息后覆盖写入 `~/.openclaw-windclaw/.windclaw-aigw-session`。
