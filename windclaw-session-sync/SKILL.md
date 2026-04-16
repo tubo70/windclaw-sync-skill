@@ -18,7 +18,6 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
 - 初始化时自动开启 `hooks.internal.enabled`
 - 初始化时自动在 default agent 的 `workspace` 和 `agentDir` 下创建或更新 `BOOT.md`
 - 手动触发词使用：`同步 windclaw session`
-- 定时任务发送的消息固定为：`请使用 windclaw-session-sync技能 同步 windclaw session`
 - 即时触发和定时触发都优先使用 `MEMORY.md` 中记录的绝对路径
 
 ## 术语变量

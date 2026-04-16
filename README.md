@@ -10,7 +10,9 @@
 
 真正的技能目录名称是：`windclaw-session-sync/`
 
-从 GitHub 仓库安装时，必须将整个 `windclaw-session-sync/` 目录复制到 OpenClaw 的共享技能目录中，并保持目录名称仍然为 `windclaw-session-sync`。
+从 GitHub 仓库安装时，必须将整个 `windclaw-session-sync/` 目录复制到 OpenClaw 的用户级共享技能目录中（默认为与openclaw.json同级目录下的skills目录），并保持目录名称仍然为 `windclaw-session-sync`。
+
+`openclaw config file` 的输出可以确定openclaw.json文件的目录，即为openclaw根目录。
 
 不要把仓库根目录直接当作技能目录。
 不要把仓库内容拆开复制。
