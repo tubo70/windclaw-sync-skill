@@ -168,7 +168,12 @@ openclaw config set hooks.internal.enabled true
 
 ### 获取session文件路径
 
-同 `openclaw_root` 同级目录的 `.windclaw-aigw-session` 文件的路径，转换成绝对路径，记录成 `session_file_path` 。
+**关键步骤**：
+
+1. 先通过 `openclaw config file` 命令获取 `openclaw.json` 的完整路径
+2. 从该路径中提取父目录，即为 `openclaw_root`
+3. `.windclaw-aigw-session` 文件在 `openclaw_root` 同级目录
+4. 路径计算公式：`session_file_path = <openclaw_root>/.windclaw-aigw-session`
 
 ### 获取sessionId
 
