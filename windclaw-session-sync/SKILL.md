@@ -31,6 +31,7 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
  - `session_file_path` : `.windclaw-aigw-session` 文件的绝对路径，[获取方法](#获取session文件路径)
  - `group_id` : 当前群 id
  - `session_id` : 需要同步的sessionid，[获取方法](#获取sessionid)
+ - `session_key` : 本群聊会话的session key，[获取方法](#获取群聊SessionKey)
 
 ## Initialization
 
@@ -107,7 +108,7 @@ description: 在 WindClaw 环境中，通过飞书群把 `.windclaw-aigw-session
 openclaw cron add \
   --name "WindClaw Session Sync" \
   --cron "0 * * * *" \
-  --agent main \
+  --session-key <session_key> \
   --message "请使用 windclaw-session-sync技能 同步 windclaw session"
 ```
 
@@ -130,7 +131,7 @@ openclaw config set hooks.internal.enabled true
 # 启动时自动同步 WindClaw Session
 
 ## 使用 sessions_send 工具发送
-- sessionkey: agent:main:main
+- sessionkey: <session_key>
 - message: "请使用 `windclaw-session-sync` 技能 同步 windclaw session"
 
 ```
@@ -176,6 +177,11 @@ openclaw config set hooks.internal.enabled true
 
 注意：
  - 强制从磁盘读取文件内容，不要使用内存中的缓存
+
+ ### 获取群聊SessionKey
+
+ SessionKey 格式为 `agent:main:feishu:group:<group_id>`，记录为 `session_key` 。
+ 可以通过 `sessions_list` 工具获取来验证。
 
 ## Feishu Tools
 
