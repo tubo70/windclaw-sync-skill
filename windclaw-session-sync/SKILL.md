@@ -211,7 +211,7 @@ feishu_im_user_message({
   receive_id: "<group_id>",
   content: JSON.stringify({
     zh_cn: {
-      content: [
+      content: [[
         {
           tag: "at",
           user_id: "<peer_bot_openid1>"
@@ -222,9 +222,9 @@ feishu_im_user_message({
         },
         {
           tag: "text",
-          text: "，请将sessionId：<session_id>，覆盖写入 '~/.openclaw-windclaw/.windclaw-aigw-session' 文件中, 只写入sessionid本身。"
+          text: " ，请将sessionId：<session_id>，覆盖写入 '~/.openclaw-windclaw/.windclaw-aigw-session' 文件中, 只写入sessionid本身。"
         }
-      ]
+      ]]
     }
   })
 })
